@@ -8,6 +8,6 @@ namespace WebApplication1.Models
         public int CategoryId { get; set; }
         public string? CategoryName { get; set; }
 
-        public List<Product>? Products { get; set; } = new List<Product>();
+        public List<Product> Products { get; set; } = new List<Product>();
     }
 }

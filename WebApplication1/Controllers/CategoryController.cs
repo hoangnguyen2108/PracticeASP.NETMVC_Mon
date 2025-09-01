@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Runtime.InteropServices;
 using WebApplication1.Data;
 using WebApplication1.DTO;
 using WebApplication1.Models;
@@ -17,20 +16,22 @@ namespace WebApplication1.Controllers
             _context = context;
         }
 
+        // Index
         [HttpGet]
         public async Task<IActionResult> Index()
         {
-            var categoryproduct = await _context.Categories.Select(c => new CategoryDTO
-            {
-                CategoryName = c.CategoryName,
-                
-            } ).ToListAsync();
+            var categoryproduct = await _context.Categories
+                .Select(c => new CategoryDTO
+                {
+                    CategoryName = c.CategoryName
+                }).ToListAsync();
 
-            var products = await _context.Products.Select(c => new ProductDTO
-            {
-                ProductName = c.ProductName,
-                Quantity = c.Quantity
-            }).ToListAsync();
+            var products = await _context.Products
+                .Select(c => new ProductDTO
+                {
+                    ProductName = c.ProductName,
+                    Quantity = c.Quantity
+                }).ToListAsync();
 
             var model = new CategoryProductVM
             {
@@ -39,52 +40,129 @@ namespace WebApplication1.Controllers
             };
             return View(model);
         }
-        // SIngle Category
+
+        // Details
         [HttpGet]
         public async Task<IActionResult> GetSingle(string categoryname)
         {
-            var product = await _context.Categories.FirstOrDefaultAsync(c => c.CategoryName == categoryname);
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryName == categoryname);
 
-            if (product == null)
-            {
-                return BadRequest("Not found");
-            }
+            if (category == null)
+                return NotFound();
 
             var model = new CategoryDTO
             {
-                CategoryName = product.CategoryName
-
+                CategoryName = category.CategoryName
             };
-            
+
             return View(model);
         }
 
-        // Create Category 
+        // Create (GET)
         [HttpGet]
-        public async Task<IActionResult> CreateCategory()
+        public IActionResult CreateCategory()
         {
             return View();
         }
 
+        // Create (POST)
         [HttpPost]
         public async Task<IActionResult> CreateCategory(CategoryDTO category)
         {
-           
+            if (await CheckCategoryDuplicate(category.CategoryName))
+            {
+                ModelState.AddModelError("CategoryName", "Duplicated Category");
+                return View(category);
+            }
+
             var model = new Category
             {
                 CategoryName = category.CategoryName
             };
+
             await _context.Categories.AddAsync(model);
-            if(!await CheckCategoryDuplicate(model.CategoryName)){
-                return BadRequest("Duplicated Category");
-            }
             await _context.SaveChangesAsync();
+
+            return RedirectToAction("Index");
         }
 
-
-        public async Task<bool>  CheckCategoryDuplicate(string categoryname)
+        // Edit (GET)
+        [HttpGet]
+        public async Task<IActionResult> Edit(string categoryname)
         {
-            return  await _context.Categories.AnyAsync(c => c.CategoryName == categoryname);
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryName == categoryname);
+
+            if (category == null)
+                return NotFound();
+
+            var model = new CategoryDTO
+            {
+                CategoryName = category.CategoryName
+            };
+
+            // We pass the old name through route values, not ViewBag
+            return View(model);
+        }
+
+        // Edit (POST)
+        [HttpPost]
+        public async Task<IActionResult> Edit(string oldCategoryName, CategoryDTO category)
+        {
+            if (!ModelState.IsValid)
+                return View(category);
+
+            var existing = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryName == oldCategoryName);
+
+            if (existing == null)
+                return NotFound();
+
+            existing.CategoryName = category.CategoryName;
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction("Index");
+        }
+
+        // Delete (GET)
+        [HttpGet]
+        public async Task<IActionResult> Delete(string categoryname)
+        {
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryName == categoryname);
+
+            if (category == null)
+                return NotFound();
+
+            var model = new CategoryDTO
+            {
+                CategoryName = category.CategoryName
+            };
+
+            return View(model);
+        }
+
+        // Delete (POST)
+        [HttpPost, ActionName("Delete")]
+        public async Task<IActionResult> DeleteConfirmed(string categoryname)
+        {
+            var category = await _context.Categories
+                .FirstOrDefaultAsync(c => c.CategoryName == categoryname);
+
+            if (category == null)
+                return NotFound();
+
+            _context.Categories.Remove(category);
+            await _context.SaveChangesAsync();
+            return RedirectToAction("Index");
+        }
+
+        // Duplicate check
+        public async Task<bool> CheckCategoryDuplicate(string categoryname)
+        {
+            return await _context.Categories
+                .AnyAsync(c => c.CategoryName == categoryname);
         }
     }
 }
